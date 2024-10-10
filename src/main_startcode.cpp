@@ -6,6 +6,7 @@
 #include "CSVWriter.hpp"
 #include "rng.h"
 #include "timer.h"
+#include "kmeans_impl.hpp"
 
 void usage()
 {
@@ -166,8 +167,8 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 	for (int r = 0 ; r < repetitions ; r++)
 	{
 		size_t numSteps = 0;
-		
-   
+
+		run_kmeans();
 
 		stepsPerRepetition[r] = numSteps;
 
