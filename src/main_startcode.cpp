@@ -108,8 +108,8 @@ void readData(std::ifstream &input, std::vector<double> &allData, size_t &numRow
 		else if (numColsExpected != (int)row.size())
 			throw std::runtime_error("Incompatible number of colums read in line " + std::to_string(line) + ": expecting " + std::to_string(numColsExpected) + " but got " + std::to_string(row.size()));
 
-		for (auto x : row)
-			allData.push_back(x);
+		allData.reserve(allData.capacity() + row.size());
+		allData.insert(allData.end(), row.begin(), row.end());
 
 		line++;
 	}
@@ -131,7 +131,7 @@ FileCSVWriter openDebugFile(const std::string &n)
 	return f;
 }
 
-int kmeans(Rng &rng, const std::string &inputFile, const std::string &outputFileName,
+int kmeans(Rng &rng, const std::string &inputFileName, const std::string &outputFileName,
            int numClusters, int repetitions, int numBlocks, int numThreads,
            const std::string &centroidDebugFileName, const std::string &clusterDebugFileName)
 {
@@ -147,7 +147,11 @@ int kmeans(Rng &rng, const std::string &inputFile, const std::string &outputFile
 		return -1;
 	}
 
-	// TODO: load dataset
+	// read dataset
+	std::vector<double> data{};
+	size_t rows, cols = 0;
+	std::ifstream input_file(inputFileName, std::ifstream::in);
+	readData(input_file, data, rows, cols);
 
 	// This is a basic timer from std::chrono ; feel free to use the appropriate timer for
 	// each of the technologies, e.g. OpenMP has omp_get_wtime()
@@ -162,8 +166,8 @@ int kmeans(Rng &rng, const std::string &inputFile, const std::string &outputFile
 	for (int r = 0 ; r < repetitions ; r++)
 	{
 		size_t numSteps = 0;
-        // TODO: perform an actual k-means run, starting from random centroids
-        //       (see rng.h)
+    // TODO: perform an actual k-means run, starting from random centroids
+    //       (see rng.h)
 		std::cerr << "TODO: implement this" << std::endl;
 
 		stepsPerRepetition[r] = numSteps;
@@ -178,7 +182,7 @@ int kmeans(Rng &rng, const std::string &inputFile, const std::string &outputFile
 
 	// Some example output, of course you can log your timing data anyway you like.
 	std::cerr << "# Type,blocks,threads,file,seed,clusters,repetitions,bestdistsquared,timeinseconds" << std::endl;
-	std::cout << "sequential," << numBlocks << "," << numThreads << "," << inputFile << "," 
+	std::cout << "sequential," << numBlocks << "," << numThreads << "," << inputFileName << "," 
 			  << rng.getUsedSeed() << "," << numClusters << ","
 		      << repetitions << "," << bestDistSquaredSum << "," << timer.durationNanoSeconds()/1e9
 			  << std::endl;
