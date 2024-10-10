@@ -1,0 +1,22 @@
+# -std=c++14: we're limiting ourselves to c++14, since that's what the 
+#             GCC compiler on the VSC supports.
+# -DNDEBUG: turns off e.g. assertion checks
+# -O3: enables optimizations in the compiler
+
+# Settings for optimized build
+FLAGS=-O3 -DNDEBUG -std=c++14
+
+# Settings for a debug build
+#FLAGS=-g -std=c++14
+
+
+SRC_DIR=src
+MAIN=$(SRC_DIR)/main_startcode.cpp
+
+all: kmeans
+
+clean:
+	rm -f kmeans
+
+kmeans: $(MAIN) $(SRC_DIR)/rng.cpp
+	$(CXX) $(FLAGS) -o kmeans $(MAIN) $(SRC_DIR)/rng.cpp
