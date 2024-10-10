@@ -1,6 +1,7 @@
 #datasets
 ./datasets
-
+/datasets
+.vscode
 
 # Prerequisites
 *.d
