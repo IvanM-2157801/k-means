@@ -50,7 +50,8 @@ size_t run_kmeans(Rng &rng, const DataSet& data_set, size_t amt_centroids) {
         if (changed) {
             for (int i = 0; i < amt_centroids; i++) {
                 // reculaculate centroid position
-                centroids[i] = average_of_points_with_cluster(centroids[i], cluster_map, data_set)
+                auto point = average_of_points_with_cluster(centroids[i], cluster_map, data_set);
+                //centroids[i] = ;
             }
         } 
     }
