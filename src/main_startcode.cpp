@@ -166,11 +166,7 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
     // the best result of these repetitions.
 	for (int r = 0 ; r < repetitions ; r++)
 	{
-		size_t numSteps = 0;
-
-		run_kmeans();
-
-		stepsPerRepetition[r] = numSteps;
+		stepsPerRepetition[r] = run_kmeans(rng, {data, rows, cols}, numClusters);
 
 		// Make sure debug logging is only done on first iteration ; subsequent checks
 		// with is_open will indicate that no logging needs to be done anymore.
