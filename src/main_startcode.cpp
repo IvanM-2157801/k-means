@@ -166,9 +166,8 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 	for (int r = 0 ; r < repetitions ; r++)
 	{
 		size_t numSteps = 0;
-    // TODO: perform an actual k-means run, starting from random centroids
-    //       (see rng.h)
-		std::cerr << "TODO: implement this" << std::endl;
+		
+   
 
 		stepsPerRepetition[r] = numSteps;
 
