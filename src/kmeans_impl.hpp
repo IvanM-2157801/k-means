@@ -33,6 +33,7 @@ size_t run_kmeans(Rng &rng, DataSet dataSet, size_t amtCentroids) {
     bool changed = true;
     while (changed) {
         changed = false;
+        
         for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
             auto row = dataSet.get_point(pointIdx);
             const auto [newCluster, dist] = closest_centroid_and_dist(centroids, row);
@@ -57,11 +58,15 @@ std::pair<size_t, double> closest_centroid_and_dist(const std::vector<PointView>
     size_t best_index = 0;
 
     for (size_t c_idx = 0; c_idx< centroids.size(); c_idx++){
-        double  dist_sum_sqrd= 0;
+        double  dist_sum_sqrd = 0;
         const auto centroid = centroids[c_idx];
+
+        // euclidic distance: sqrt((x1 - y1)² + (x2 - y2)²)
+        // where x and y are point in R²
         for (size_t i; i < row.len; i++){
-            dist_sum_sqrd += centroid.point[i] * row.point[i];
+            dist_sum_sqrd += centroid.point[i] - row.point[i];
         }
+
         if (dist_sum_sqrd < best_dist){
             best_dist = dist_sum_sqrd;
             best_index = 0; // index of centroid
