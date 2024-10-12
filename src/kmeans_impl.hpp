@@ -18,18 +18,19 @@ using Centroid = std::vector<double>;
 
 std::ostream& operator<<(std::ostream& o, const PointView &v){
     o << std::setprecision(15);
-    for (size_t i = 0; i < v.len; i++){
+    for (size_t i = 0; i < v.len-1; i++){
         o << v.point[i] << ", ";
     }
+    o << v.point[v.len-1];
     return o;
 }
 
 template <typename T>
 std::ostream& operator<<(std::ostream& o, const std::vector<T> &v){
     o << std::setprecision(15);
-    for (const auto d : v){
-        o << d << ", ";
-    }
+    for (size_t i = 0; i < v.size()-1; i++)
+        o << v[i] << ", ";
+    o << v[v.size()-1];
     return o;
 }
 

@@ -192,8 +192,10 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 		      << repetitions << "," << bestDistSquaredSum << "," << timer.durationNanoSeconds()/1e9
 			  << std::endl;
 
+
 	// Write the number of steps per repetition, kind of a signature of the work involved
 	csvOutputFile.write(stepsPerRepetition, "# Steps: ");
+	csvOutputFile.write(bestCentroids);
 	// Write best clusters to csvOutputFile, something like
 	// csvOutputFile.write( best cluster indices )
 	return 0;
