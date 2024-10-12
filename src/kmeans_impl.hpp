@@ -1,100 +1,174 @@
-#include <iostream>
+#include <cstddef>
+#include <iomanip>
+#include <ostream>
 #include <vector>
 #include "rng.h"
 #include <utility>
 #include <algorithm>
+#include <functional>
+#include <iostream>
 
 struct PointView {
     const double* point;
     size_t len;
-    size_t idx;
 };
+
+// centroid is just an N-dim point
+using Centroid = std::vector<double>;
+
+std::ostream& operator<<(std::ostream& o, const PointView &v){
+    o << std::setprecision(15);
+    for (size_t i = 0; i < v.len; i++){
+        o << v.point[i] << ", ";
+    }
+    return o;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& o, const std::vector<T> &v){
+    o << std::setprecision(15);
+    for (const auto d : v){
+        o << d << ", ";
+    }
+    return o;
+}
 
 struct DataSet {
     const std::vector<double> &data;
     size_t rows;
     size_t cols;
 
-    PointView get_point(size_t rowIdx) const {
+    // 2D array in 1D vector how to get a view over a row???
+    // say the vector of 2D points looks like this
+    // rows = 4, cols = 2
+    // [(10, 10), (20, 20), (30, 30), (40, 40)]
+    // or: [10, 10, 20, 20, 30, 30, 40, 40]
+    // to get row 2 (zero-indexed 1) (or (20, 20)) we do:
+    // we get address of the first 20: 1 * 2 or in other terms
+    // cols * rowIdx
+    PointView get_point_view(size_t rowIdx) const {
         return {
-            &data[rowIdx * rows],
+            &data[rowIdx * cols],
             cols,
-            rowIdx,
         };
+    }
+
+    // returns a copy
+    std::vector<double> get_point(size_t row_idx) const {
+        auto pointBegin = data.begin() + (row_idx * cols);
+        auto pointEnd = pointBegin + cols;
+        return std::vector<double>(pointBegin, pointEnd);
     }
 };
 
-size_t run_kmeans(Rng &rng, const DataSet& data_set, size_t amt_centroids) {
-    std::vector<size_t> cluster_map = std::vector<size_t>(data_set.rows, -1);
 
-    auto centroid_indices = std::vector<size_t>(amt_centroids);
-    rng.pickRandomIndices(data_set.rows, centroid_indices);
-    
-    auto centroids = std::vector<PointView>(amt_centroids);
-    for (const auto c_idx : centroid_indices)
-        centroids.push_back(data_set.get_point(c_idx));
+// for a point find the closest centroid and return that distance with the index of that centroid
+std::pair<size_t, double> closest_centroid_and_dist(const std::vector<Centroid>& centroids, const PointView point) {
+    double bestDist =  std::numeric_limits<double>::max(); // can only get better
+    size_t bestIndex = -1;
+
+    for (size_t cIdx = 0; cIdx < centroids.size(); cIdx++){
+        double  distSumSqrd = 0;
+        const auto centroid = centroids[cIdx];
+
+        // euclidic distance: sqrt((x1 - y1)² + (x2 - y2)²)
+        // where x and y are points in R²
+        for (size_t i = 0; i < point.len; i++){
+            auto pointDiff = centroid[i] - point.point[i];
+            distSumSqrd += pointDiff * pointDiff;
+        }
+
+        if (distSumSqrd < bestDist) {
+            bestIndex = cIdx;
+            // index of centroi d
+            bestDist = distSumSqrd;
+        }
+    }
+    return { bestIndex, bestDist };
+}
+
+
+std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, const std::vector<size_t> &clusterMap, const DataSet& dataSet) {
+    size_t count = 0;
+    auto avgPoint = std::vector<double>(dataSet.cols, 0);
+    for (int i = 0; i < clusterMap.size(); i++) {
+        size_t clusterIdx = clusterMap[i];
+        PointView v = dataSet.get_point_view(i);
+        if (clusterIdx == centroidIdx) {
+            count++;
+            std::transform(
+                avgPoint.cbegin(), avgPoint.cend(), // iterate over avgPoint and transform in place
+                v.point, avgPoint.begin(), // iterate over 2 iterators and perform binary_op
+                std::plus<double>{} // binary_op
+            );
+        }
+    }
+    if (!count){
+        exit(69);
+    }
+    std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
+    return avgPoint;
+}
+
+
+struct KMeansResult{
+    size_t steps;
+    double bestDistSumSqrd;
+    std::vector<size_t> bestCentroidsIndices;
+};
+
+KMeansResult run_kmeans(Rng &rng, const DataSet& dataSet, size_t amtCentroids) {
+    double bestdistSqrdSum = std::numeric_limits<double>::max(); // can only get better
+    std::vector<size_t> bestCentroidsIndices{};
+    // cluster map maps points to their cluster
+    // the value is the index of the cluster
+    // the index of that value is the point
+    std::vector<size_t> centroidMap = std::vector<size_t>(dataSet.rows, -1);
+
+    // first centroid points are
+    auto centroidsIndices = std::vector<size_t>(amtCentroids);
+    rng.pickRandomIndices(dataSet.rows, centroidsIndices);
+
+    auto centroids = std::vector<Centroid>{};
+    for (const auto cIdx : centroidsIndices) {
+        auto centroid = dataSet.get_point(cIdx);
+        centroids.push_back(centroid);
+    }
 
     bool changed = true;
+    size_t steps = 0;
+
     while (changed) {
         changed = false;
-        
-        for (int pointIdx = 0; pointIdx < data_set.rows; pointIdx++) {
-            auto row = data_set.get_point(pointIdx);
-            const auto [newCluster, dist] = closest_centroid_and_dist(centroids, row);
+        double distSqrdSum = 0;
+        steps++;
 
-            if (newCluster != cluster_map[pointIdx]) {
-                cluster_map[pointIdx] = newCluster;
+        for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
+            auto row = dataSet.get_point_view(pointIdx);
+            const auto result = closest_centroid_and_dist(centroids, row);
+            const auto newCluster = result.first;
+            distSqrdSum += result.second;
+            if (newCluster != centroidMap[pointIdx]) {
+                centroidMap[pointIdx] = newCluster;
                 changed = true;
             }
         }
         if (changed) {
-            for (int i = 0; i < amt_centroids; i++) {
+            for (int i = 0; i < amtCentroids; i++) {
                 // reculaculate centroid position
-                auto point = average_of_points_with_cluster(centroids[i], cluster_map, data_set);
-                //centroids[i] = ;
+                centroids[i] = average_of_points_with_cluster(i, centroidMap, dataSet);
             }
-        } 
-    }
-
-    return 0;
-}
-
-std::pair<size_t, double> closest_centroid_and_dist(const std::vector<PointView>& centroids, const PointView row) {
-    double best_dist =  std::numeric_limits<double>::max(); // can only get better
-    size_t best_index = 0;
-
-    for (size_t c_idx = 0; c_idx< centroids.size(); c_idx++){
-        double  dist_sum_sqrd = 0;
-        const auto centroid = centroids[c_idx];
-
-        // euclidic distance: sqrt((x1 - y1)² + (x2 - y2)²)
-        // where x and y are point in R²
-        for (size_t i; i < row.len; i++){
-            dist_sum_sqrd += centroid.point[i] - row.point[i];
         }
 
-        if (dist_sum_sqrd < best_dist){
-            best_index = c_idx; 
-            // index of centroi d
-            best_dist = dist_sum_sqrd;
+        if (distSqrdSum < bestdistSqrdSum){
+            bestCentroidsIndices = centroidMap;
+            bestdistSqrdSum = distSqrdSum;
         }
     }
 
-    return { best_index, best_dist };
-}
-
-// ik heb geen idee of dit klopt in godsnaam
-std::vector<double> average_of_points_with_cluster(const PointView& centroid, std::vector<size_t> cluster_map, const DataSet& data_set) {
-    int count = 0;
-    auto avg_point = std::vector<double>(centroid.len);
-    for (int i = 0; i < cluster_map.size(); i++) {
-        size_t cluster = cluster_map[i];
-        PointView p = data_set.get_point(i);
-        if (cluster == centroid.idx) {
-            count++;
-            std::transform (avg_point.begin(), avg_point.end(), &p.point, avg_point.begin(), std::plus<int>());
-        }
-    }
-    std::transform(avg_point.begin(), avg_point.end(), avg_point.begin(), [count](int x) { return x / count; });
-    return avg_point;
+    return {
+        steps,
+        bestdistSqrdSum,
+        bestCentroidsIndices
+    };
 }

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <cstdlib>
 #include "CSVReader.hpp"
@@ -18,7 +19,7 @@ Usage:
 Arguments:
 
  --input:
- 
+
    Specifies input CSV file, number of rows represents number of points, the
    number of columns is the dimension of each point.
 
@@ -45,22 +46,22 @@ Arguments:
 
  --threads:
 
-   Not relevant for the serial version. For the OpenMP version, this number 
-   of threads should be used. For the CUDA version, this is the number of 
+   Not relevant for the serial version. For the OpenMP version, this number
+   of threads should be used. For the CUDA version, this is the number of
    threads per block. For the MPI executable, this should be ignored, but
    the wrapper script 'mpiwrapper.sh' can inspect this to run 'mpirun' with
    the correct number of processes.
 
  --seed:
 
-   Specifies a seed for the random number generator, to be able to get 
+   Specifies a seed for the random number generator, to be able to get
    reproducible results.
 
  --trace:
 
    Debug option - do NOT use this when timing your program!
 
-   For each repetition, the k-means algorithm goes through a sequence of 
+   For each repetition, the k-means algorithm goes through a sequence of
    increasingly better cluster assignments. If this option is specified, this
    sequence of cluster assignments should be written to a CSV file, similar
    to the '--output' option. Instead of only having one line, there will be
@@ -73,11 +74,11 @@ Arguments:
 
    Debug option - do NOT use this when timing your program!
 
-   Should also only log data during the first repetition. The resulting CSV 
+   Should also only log data during the first repetition. The resulting CSV
    file first logs the randomly chosen centroids from the input data, and for
-   each step in the sequence, the updated centroids are logged. The program 
+   each step in the sequence, the updated centroids are logged. The program
    'visualize_centroids.py' can be used to visualize how the centroids change.
-   
+
 )XYZ";
 	exit(-1);
 }
@@ -109,7 +110,6 @@ void readData(std::ifstream &input, std::vector<double> &allData, size_t &numRow
 		else if (numColsExpected != (int)row.size())
 			throw std::runtime_error("Incompatible number of colums read in line " + std::to_string(line) + ": expecting " + std::to_string(numColsExpected) + " but got " + std::to_string(row.size()));
 
-		allData.reserve(allData.capacity() + row.size());
 		allData.insert(allData.end(), row.begin(), row.end());
 
 		line++;
@@ -131,6 +131,7 @@ FileCSVWriter openDebugFile(const std::string &n)
 	}
 	return f;
 }
+
 
 int kmeans(Rng &rng, const std::string &inputFileName, const std::string &outputFileName,
            int numClusters, int repetitions, int numBlocks, int numThreads,
@@ -159,15 +160,23 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 	Timer timer;
 
 	double bestDistSquaredSum = std::numeric_limits<double>::max(); // can only get better
+	std::vector<size_t> bestCentroids{};
 	std::vector<size_t> stepsPerRepetition(repetitions); // to save the number of steps each rep needed
 
     // Do the k-means routine a number of times, each time starting from
-    // different random centroids (use Rng::pickRandomIndices), and keep 
+    // different random centroids (use Rng::pickRandomIndices), and keep
     // the best result of these repetitions.
 	for (int r = 0 ; r < repetitions ; r++)
 	{
-		stepsPerRepetition[r] = run_kmeans(rng, {data, rows, cols}, numClusters);
+		KMeansResult result = run_kmeans(rng, {data, rows, cols}, numClusters);
+		stepsPerRepetition[r] = result.steps;
 
+		if (result.bestDistSumSqrd < bestDistSquaredSum){
+		    bestDistSquaredSum = result.bestDistSumSqrd;
+			bestCentroids = result.bestCentroidsIndices;
+		}
+
+		std::cout << "On Repition " << r+1 << " we got " << stepsPerRepetition[r] << " steps" << std::endl;
 		// Make sure debug logging is only done on first iteration ; subsequent checks
 		// with is_open will indicate that no logging needs to be done anymore.
 		centroidDebugFile.close();
@@ -178,7 +187,7 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 
 	// Some example output, of course you can log your timing data anyway you like.
 	std::cerr << "# Type,blocks,threads,file,seed,clusters,repetitions,bestdistsquared,timeinseconds" << std::endl;
-	std::cout << "sequential," << numBlocks << "," << numThreads << "," << inputFileName << "," 
+	std::cout << "sequential," << numBlocks << "," << numThreads << "," << inputFileName << ","
 			  << rng.getUsedSeed() << "," << numClusters << ","
 		      << repetitions << "," << bestDistSquaredSum << "," << timer.durationNanoSeconds()/1e9
 			  << std::endl;

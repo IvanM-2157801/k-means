@@ -1,4 +1,4 @@
-# -std=c++14: we're limiting ourselves to c++14, since that's what the 
+# -std=c++14: we're limiting ourselves to c++14, since that's what the
 #             GCC compiler on the VSC supports.
 # -DNDEBUG: turns off e.g. assertion checks
 # -O3: enables optimizations in the compiler
@@ -18,5 +18,5 @@ all: kmeans
 clean:
 	rm -f kmeans
 
-kmeans: $(MAIN) $(SRC_DIR)/rng.cpp
-	$(CXX) $(FLAGS) -o kmeans $(MAIN) $(SRC_DIR)/rng.cpp $(SRC_DIR)/kmeans_impl.cpp 
+kmeans: $(MAIN) $(SRC_DIR)/rng.cpp $(SRC_DIR)/kmeans_impl.hpp
+	$(CXX) $(FLAGS) -o kmeans $(MAIN) $(SRC_DIR)/rng.cpp
