@@ -179,8 +179,8 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 		std::cout << "On Repition " << r+1 << " we got " << stepsPerRepetition[r] << " steps" << std::endl;
 		// Make sure debug logging is only done on first iteration ; subsequent checks
 		// with is_open will indicate that no logging needs to be done anymore.
-		// centroidDebugFile.close();
-		// clustersDebugFile.close();
+		centroidDebugFile.close();
+		clustersDebugFile.close();
 	}
 
 	timer.stop();
