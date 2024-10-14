@@ -3,6 +3,10 @@
 /datasets
 .vscode
 
+output.csv
+centroids.csv
+clusters.csv
+
 # Prerequisites
 *.d
 

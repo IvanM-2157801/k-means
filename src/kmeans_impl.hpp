@@ -171,15 +171,16 @@ KMeansResult run_kmeans(
             bestCentroidsIndices = centroidMap;
             bestdistSqrdSum = distSqrdSum;
         }
-    }
 
-    if (centroidDebugFile.is_open()) {
-        for (const auto& centroid: centroids)
-		    centroidDebugFile.write(std::vector<double>(), 2);
-	}
-	if (clustersDebugFile.is_open()) {
-		clustersDebugFile.write(centroidMap);
-	}
+        if (centroidDebugFile.is_open()) {
+            for (const auto& centroid: centroids) {
+                centroidDebugFile.write(centroid, 2);
+            }
+        }
+        if (clustersDebugFile.is_open()) {
+            clustersDebugFile.write(centroidMap);
+        }
+    }
 
     return {
         steps,
