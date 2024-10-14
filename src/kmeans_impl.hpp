@@ -118,7 +118,13 @@ struct KMeansResult{
     std::vector<size_t> bestCentroidsIndices;
 };
 
-KMeansResult run_kmeans(Rng &rng, const DataSet& dataSet, size_t amtCentroids) {
+KMeansResult run_kmeans(
+    Rng &rng,
+    const DataSet& dataSet,
+    size_t amtCentroids,
+    FileCSVWriter& clustersDebugFile,
+    FileCSVWriter& centroidDebugFile
+) {
     double bestdistSqrdSum = std::numeric_limits<double>::max(); // can only get better
     std::vector<size_t> bestCentroidsIndices{};
     // cluster map maps points to their cluster
@@ -166,6 +172,14 @@ KMeansResult run_kmeans(Rng &rng, const DataSet& dataSet, size_t amtCentroids) {
             bestdistSqrdSum = distSqrdSum;
         }
     }
+
+    if (centroidDebugFile.is_open()) {
+        for (const auto& centroid: centroids)
+		    centroidDebugFile.write(std::vector<double>(), 2);
+	}
+	if (clustersDebugFile.is_open()) {
+		clustersDebugFile.write(centroidMap);
+	}
 
     return {
         steps,

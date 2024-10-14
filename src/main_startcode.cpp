@@ -168,7 +168,7 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
     // the best result of these repetitions.
 	for (int r = 0 ; r < repetitions ; r++)
 	{
-		KMeansResult result = run_kmeans(rng, {data, rows, cols}, numClusters);
+		KMeansResult result = run_kmeans(rng, {data, rows, cols}, numClusters, clustersDebugFile, centroidDebugFile);
 		stepsPerRepetition[r] = result.steps;
 
 		if (result.bestDistSumSqrd < bestDistSquaredSum){
@@ -179,8 +179,8 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 		std::cout << "On Repition " << r+1 << " we got " << stepsPerRepetition[r] << " steps" << std::endl;
 		// Make sure debug logging is only done on first iteration ; subsequent checks
 		// with is_open will indicate that no logging needs to be done anymore.
-		centroidDebugFile.close();
-		clustersDebugFile.close();
+		// centroidDebugFile.close();
+		// clustersDebugFile.close();
 	}
 
 	timer.stop();
@@ -196,8 +196,6 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 	// Write the number of steps per repetition, kind of a signature of the work involved
 	csvOutputFile.write(stepsPerRepetition, "# Steps: ");
 	csvOutputFile.write(bestCentroids);
-	// Write best clusters to csvOutputFile, something like
-	// csvOutputFile.write( best cluster indices )
 	return 0;
 }
 
