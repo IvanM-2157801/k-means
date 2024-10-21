@@ -163,12 +163,14 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 	std::vector<size_t> bestCentroids{};
 	std::vector<size_t> stepsPerRepetition(repetitions); // to save the number of steps each rep needed
 
+	auto kmeansImpl = KMeans({data, rows, cols}, numClusters);
+
     // Do the k-means routine a number of times, each time starting from
     // different random centroids (use Rng::pickRandomIndices), and keep
     // the best result of these repetitions.
 	for (int r = 0 ; r < repetitions ; r++)
 	{
-		KMeansResult result = run_kmeans(rng, {data, rows, cols}, numClusters, clustersDebugFile, centroidDebugFile);
+		KMeansResult result = kmeansImpl.run_kmeans(rng, clustersDebugFile, centroidDebugFile);
 		stepsPerRepetition[r] = result.steps;
 
 		{
