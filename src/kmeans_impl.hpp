@@ -12,6 +12,8 @@
 struct PointView {
     const double* point;
     size_t len;
+
+
 };
 
 // centroid is just an N-dim point
@@ -48,15 +50,20 @@ struct CentroidPointMapping{
         
     */
 
-    CentroidPointMapping(size_t amountPoints, size_t amtCentriods): centroidMap(std::vector<size_t>(amountPoints, 0)), centroidToPointMap(amtCentriods) {
+    CentroidPointMapping(size_t amountPoints, size_t amtCentriods)
+        : centroidMap(std::vector<size_t>(amountPoints, 0))
+        , centroidToPointMap(amtCentriods)
+    {
         for (auto& points : centroidToPointMap){
-            points.reserve((size_t) amountPoints / amtCentriods); // pre allocate
+            points.reserve(amountPoints / amtCentriods); // pre allocate
         }
     }
 
     void clear(){
-        centroidMap.clear();
-        centroidToPointMap.clear();
+        std::fill(centroidMap.begin(), centroidMap.end(), 0);
+        for (auto &points: centroidToPointMap){
+            points.clear();
+        }
     }
 
     size_t centroid_map_size() const{
@@ -71,7 +78,7 @@ struct CentroidPointMapping{
         /// removed point
         auto& oldCluster = centroidToPointMap[oldCentroidIdx];
         auto& newCluster = centroidToPointMap[newCentroidIdx];
-        auto removed = std::remove_if(oldCluster.begin(), oldCluster.end() , [pv](PointView to_remove){return to_remove.point == pv.point;});
+        auto removed = std::remove_if(oldCluster.begin(), oldCluster.end() , [&pv](PointView to_remove){return to_remove.point == pv.point;});
         oldCluster.erase(removed, oldCluster.end());
 
         newCluster.push_back(pv);
@@ -168,7 +175,7 @@ class KMeans{
     std::vector<double> average_of_points_with_cluster(const size_t centroidIdx) const {
         size_t count = 1;
         auto avgPoint = std::vector<double>(dataSet.cols, 0);
-        for (const auto pointView : mapping.points_in_cluster(centroidIdx)){
+        for (const auto &pointView : mapping.points_in_cluster(centroidIdx)){
             count++;
             std::transform(
                 avgPoint.cbegin(), avgPoint.cend(), // iterate over avgPoint and transform in place
@@ -189,7 +196,6 @@ class KMeans{
         FileCSVWriter& centroidDebugFile
     ) {
         // clear but keep allocations
-        clear_vectors();
         double bestdistSqrdSum = std::numeric_limits<double>::max(); // can only get better
 
     
@@ -245,6 +251,7 @@ class KMeans{
                 bestdistSqrdSum = distSqrdSum;
             }
         }
+        clear_vectors();
 
         return {
             steps,

@@ -4,8 +4,7 @@
 # -O3: enables optimizations in the compiler
 
 # Settings for optimized build
-FLAGS=-O3 -DNDEBUG -std=c++14
-
+FLAGS= -std=c++14 -O3 -DNDEBUG
 # Settings for a debug build
 #FLAGS=-g -std=c++14
 
