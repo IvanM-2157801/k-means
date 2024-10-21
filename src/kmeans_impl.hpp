@@ -48,7 +48,7 @@ struct CentroidPointMapping{
         
     */
 
-    CentroidPointMapping(size_t amountPoints, size_t amtCentriods): centroidMap(std::vector<size_t>(amountPoints, -1)), centroidToPointMap(amtCentriods) {
+    CentroidPointMapping(size_t amountPoints, size_t amtCentriods): centroidMap(std::vector<size_t>(amountPoints, 0)), centroidToPointMap(amtCentriods) {
         for (auto& points : centroidToPointMap){
             points.reserve((size_t) amountPoints / amtCentriods); // pre allocate
         }
@@ -64,7 +64,9 @@ struct CentroidPointMapping{
     }
     void remap_point_to_centroid(size_t pointIdx, PointView pv, size_t newCentroidIdx, size_t oldCentroidIdx){
         /// removed point
-        auto removed = std::remove_if(centroidToPointMap[oldCentroidIdx].begin(),centroidToPointMap[oldCentroidIdx].end() , [pv](PointView to_remove){return to_remove.point == pv.point;});
+        auto& oldCluster = centroidToPointMap[oldCentroidIdx];
+        auto removed = std::remove_if(oldCluster.begin(), oldCluster.end() , [pv](PointView to_remove){return to_remove.point == pv.point;});
+        oldCluster.erase(removed, oldCluster.end());
         centroidToPointMap[newCentroidIdx].push_back(pv);
         centroidMap[pointIdx] = newCentroidIdx;
     }
@@ -140,10 +142,9 @@ std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, con
             std::plus<double>{} // binary_op
         );
     }
-    if (!count){
-        exit(69);
+    if (count){
+        std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
     }
-    std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
     return avgPoint;
 }
 
@@ -197,9 +198,10 @@ KMeansResult run_kmeans(
         for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
             auto pointView = dataSet.get_point_view(pointIdx);
             const auto result = closest_centroid_and_dist(centroids, pointView);
-            const auto newCluster = result.first;
-            const auto oldCluster = mapping.centroid_of_point(pointIdx);
             distSqrdSum += result.second;
+
+            const auto newCluster = result.first; // kan niet -1 zijn
+            const auto oldCluster = mapping.centroid_of_point(pointIdx); // kan -1 zijn
             if (newCluster != oldCluster) {
                 mapping.remap_point_to_centroid(pointIdx, pointView, newCluster, oldCluster);
                 changed = true;
