@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include "CSVWriter.hpp"
 
 struct PointView {
     const double* point;
@@ -33,6 +34,45 @@ std::ostream& operator<<(std::ostream& o, const std::vector<T> &v){
     o << v[v.size()-1];
     return o;
 }
+
+struct CentroidPointMapping{
+    
+    // cluster map maps points to their cluster
+    // the value is the index of the cluster
+    // the index of that value is the point
+    std::vector<size_t> centroidMap;
+    // cluster index to its points 
+    // cluster index -> collection of points
+    std::vector<std::vector<PointView>> centroidToPointMap;
+    /*
+        
+    */
+
+    CentroidPointMapping(size_t amountPoints, size_t amtCentriods): centroidMap(std::vector<size_t>(amountPoints, -1)), centroidToPointMap(amtCentriods) {
+        for (auto& points : centroidToPointMap){
+            points.reserve((size_t) amountPoints / amtCentriods); // pre allocate
+        }
+    }
+
+    size_t centroid_map_size() const{
+        return centroidMap.size();
+    }
+
+
+    const std::vector<PointView>& points_in_cluster(size_t clusterIdx) const{
+        return centroidToPointMap[clusterIdx];
+    }
+    void remap_point_to_centroid(size_t pointIdx, PointView pv, size_t newCentroidIdx, size_t oldCentroidIdx){
+        /// removed point
+        auto removed = std::remove_if(centroidToPointMap[oldCentroidIdx].begin(),centroidToPointMap[oldCentroidIdx].end() , [pv](PointView to_remove){return to_remove.point == pv.point;});
+        centroidToPointMap[newCentroidIdx].push_back(pv);
+        centroidMap[pointIdx] = newCentroidIdx;
+    }
+
+    size_t centroid_of_point(size_t pointIdx) const{
+        return centroidMap[pointIdx];
+    }
+};
 
 struct DataSet {
     const std::vector<double> &data;
@@ -89,20 +129,16 @@ std::pair<size_t, double> closest_centroid_and_dist(const std::vector<Centroid>&
 }
 
 
-std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, const std::vector<size_t> &clusterMap, const DataSet& dataSet) {
+std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, const CentroidPointMapping& mapping, const DataSet& dataSet) {
     size_t count = 0;
     auto avgPoint = std::vector<double>(dataSet.cols, 0);
-    for (int i = 0; i < clusterMap.size(); i++) {
-        size_t clusterIdx = clusterMap[i];
-        PointView v = dataSet.get_point_view(i);
-        if (clusterIdx == centroidIdx) {
-            count++;
-            std::transform(
-                avgPoint.cbegin(), avgPoint.cend(), // iterate over avgPoint and transform in place
-                v.point, avgPoint.begin(), // iterate over 2 iterators and perform binary_op
-                std::plus<double>{} // binary_op
-            );
-        }
+    for (const auto pointView : mapping.points_in_cluster(centroidIdx)){
+        count++;
+        std::transform(
+            avgPoint.cbegin(), avgPoint.cend(), // iterate over avgPoint and transform in place
+            pointView.point, avgPoint.begin(), // iterate over 2 iterators and perform binary_op
+            std::plus<double>{} // binary_op
+        );
     }
     if (!count){
         exit(69);
@@ -110,6 +146,7 @@ std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, con
     std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
     return avgPoint;
 }
+
 
 
 struct KMeansResult{
@@ -126,16 +163,14 @@ KMeansResult run_kmeans(
     FileCSVWriter& centroidDebugFile
 ) {
     double bestdistSqrdSum = std::numeric_limits<double>::max(); // can only get better
-    std::vector<size_t> bestCentroidsIndices{};
-    // cluster map maps points to their cluster
-    // the value is the index of the cluster
-    // the index of that value is the point
-    std::vector<size_t> centroidMap = std::vector<size_t>(dataSet.rows, -1);
 
+    auto mapping = CentroidPointMapping(dataSet.rows, amtCentroids);
+    
     // first centroid points are
     auto centroidsIndices = std::vector<size_t>(amtCentroids);
     rng.pickRandomIndices(dataSet.rows, centroidsIndices);
 
+    std::vector<size_t>& bestCentroidsIndices = mapping.centroidMap;
     auto centroids = std::vector<Centroid>{};
     for (const auto cIdx : centroidsIndices) {
         auto centroid = dataSet.get_point(cIdx);
@@ -152,7 +187,7 @@ KMeansResult run_kmeans(
             }
         }
         if (clustersDebugFile.is_open()) {
-            clustersDebugFile.write(centroidMap);
+            clustersDebugFile.write(mapping.centroidMap);
         }
 
         changed = false;
@@ -160,24 +195,25 @@ KMeansResult run_kmeans(
         steps++;
 
         for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
-            auto row = dataSet.get_point_view(pointIdx);
-            const auto result = closest_centroid_and_dist(centroids, row);
+            auto pointView = dataSet.get_point_view(pointIdx);
+            const auto result = closest_centroid_and_dist(centroids, pointView);
             const auto newCluster = result.first;
+            const auto oldCluster = mapping.centroid_of_point(pointIdx);
             distSqrdSum += result.second;
-            if (newCluster != centroidMap[pointIdx]) {
-                centroidMap[pointIdx] = newCluster;
+            if (newCluster != oldCluster) {
+                mapping.remap_point_to_centroid(pointIdx, pointView, newCluster, oldCluster);
                 changed = true;
             }
         }
         if (changed) {
             for (int i = 0; i < amtCentroids; i++) {
                 // reculaculate centroid position
-                centroids[i] = average_of_points_with_cluster(i, centroidMap, dataSet);
+                centroids[i] = average_of_points_with_cluster(i, mapping, dataSet);
             }
         }
 
         if (distSqrdSum < bestdistSqrdSum){
-            bestCentroidsIndices = centroidMap;
+            bestCentroidsIndices = mapping.centroidMap;
             bestdistSqrdSum = distSqrdSum;
         }
     }
