@@ -70,9 +70,11 @@ struct CentroidPointMapping{
     void remap_point_to_centroid(size_t pointIdx, PointView pv, size_t newCentroidIdx, size_t oldCentroidIdx){
         /// removed point
         auto& oldCluster = centroidToPointMap[oldCentroidIdx];
+        auto& newCluster = centroidToPointMap[newCentroidIdx];
         auto removed = std::remove_if(oldCluster.begin(), oldCluster.end() , [pv](PointView to_remove){return to_remove.point == pv.point;});
         oldCluster.erase(removed, oldCluster.end());
-        centroidToPointMap[newCentroidIdx].push_back(pv);
+
+        newCluster.push_back(pv);
         centroidMap[pointIdx] = newCentroidIdx;
     }
 
@@ -131,14 +133,10 @@ class KMeans{
         , mapping(CentroidPointMapping(ds.rows, amtCentroids))
         , centroidsIndices(std::vector<size_t>(amtCentroids))
         , centroids(std::vector<Centroid>(amtCentroids)){
-            std::cout << "CENTROID INDICES SIZE: " << centroidsIndices.size() << std::endl;
-            std::cout << "CENTROIDS SIZE: " << centroids.size() << std::endl;
     }
 
     void clear_vectors(){
         mapping.clear();
-        centroids.clear();
-        centroidsIndices.clear();
     }
 
     // for a point find the closest centroid and return that distance with the index of that centroid
@@ -168,7 +166,7 @@ class KMeans{
 
 
     std::vector<double> average_of_points_with_cluster(const size_t centroidIdx) const {
-        size_t count = 0;
+        size_t count = 1;
         auto avgPoint = std::vector<double>(dataSet.cols, 0);
         for (const auto pointView : mapping.points_in_cluster(centroidIdx)){
             count++;
@@ -178,9 +176,7 @@ class KMeans{
                 std::plus<double>{} // binary_op
             );
         }
-        if (count){
-            std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
-        }
+        std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
         return avgPoint;
     }
 
@@ -198,10 +194,13 @@ class KMeans{
 
     
         rng.pickRandomIndices(dataSet.rows, centroidsIndices);
+        size_t centroids_insert_index = 0;
         for (const auto cIdx : centroidsIndices) {
             auto centroid = dataSet.get_point(cIdx);
-            centroids[cIdx] = centroid;
+            centroids[centroids_insert_index] = std::move(centroid);
+            centroids_insert_index += 1;
         }
+
 
         std::vector<size_t> bestCentroidsIndices = mapping.centroidMap;
 
