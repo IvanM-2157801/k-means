@@ -150,6 +150,15 @@ KMeansResult run_kmeans(
         double distSqrdSum = 0;
         steps++;
 
+        if (centroidDebugFile.is_open()) {
+            for (const auto& centroid: centroids) {
+                centroidDebugFile.write(centroid, dataSet.cols);
+            }
+        }
+        if (clustersDebugFile.is_open()) {
+            clustersDebugFile.write(centroidMap);
+        }
+
         for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
             auto row = dataSet.get_point_view(pointIdx);
             const auto result = closest_centroid_and_dist(centroids, row);
@@ -170,15 +179,6 @@ KMeansResult run_kmeans(
         if (distSqrdSum < bestdistSqrdSum){
             bestCentroidsIndices = centroidMap;
             bestdistSqrdSum = distSqrdSum;
-        }
-
-        if (centroidDebugFile.is_open()) {
-            for (const auto& centroid: centroids) {
-                centroidDebugFile.write(centroid, 2);
-            }
-        }
-        if (clustersDebugFile.is_open()) {
-            clustersDebugFile.write(centroidMap);
         }
     }
 
