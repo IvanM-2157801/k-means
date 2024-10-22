@@ -19,4 +19,4 @@ clean:
 	rm -f kmeans
 
 kmeans: $(MAIN) $(SRC_DIR)/rng.cpp $(SRC_DIR)/kmeans_impl.hpp
-	$(CXX) $(FLAGS) -o kmeans $(MAIN) $(SRC_DIR)/rng.cpp
+	gcc $(FLAGS) -o kmeans $(MAIN) $(SRC_DIR)/rng.cpp -lstdc++
