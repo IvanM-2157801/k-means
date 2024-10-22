@@ -89,10 +89,10 @@ std::pair<size_t, double> closest_centroid_and_dist(const std::vector<Centroid>&
 }
 
 
-std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, const std::vector<size_t> &clusterMap, const DataSet& dataSet) {
+std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, const size_t* clusterMap, const DataSet& dataSet) {
     size_t count = 0;
     auto avgPoint = std::vector<double>(dataSet.cols, 0);
-    for (int i = 0; i < clusterMap.size(); i++) {
+    for (int i = 0; i < dataSet.rows; i++) {
         size_t clusterIdx = clusterMap[i];
         PointView v = dataSet.get_point_view(i);
         if (clusterIdx == centroidIdx) {
@@ -115,7 +115,8 @@ std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, con
 struct KMeansResult{
     size_t steps;
     double bestDistSumSqrd;
-    std::vector<size_t> bestCentroidsIndices;
+    // std::vector<size_t> bestCentroidsIndices;
+    size_t* bestCentroidIndices;
 };
 
 KMeansResult run_kmeans(
@@ -125,12 +126,14 @@ KMeansResult run_kmeans(
     FileCSVWriter& clustersDebugFile,
     FileCSVWriter& centroidDebugFile
 ) {
-    double bestdistSqrdSum = std::numeric_limits<double>::max(); // can only get better
-    std::vector<size_t> bestCentroidsIndices{};
+    double bestdistSqrdSum = std::numeric_limits<double>::max(); 
+    size_t* bestCentroidsIndices;
+    // std::vector<size_t> bestCentroidsIndices{};
     // cluster map maps points to their cluster
     // the value is the index of the cluster
     // the index of that value is the point
-    std::vector<size_t> centroidMap = std::vector<size_t>(dataSet.rows, -1);
+    // std::vector<size_t> centroidMap = std::vector<size_t>(dataSet.rows, -1);
+    size_t centroidMap[dataSet.rows] = { 0 };
 
     // first centroid points are
     auto centroidsIndices = std::vector<size_t>(amtCentroids);
@@ -156,7 +159,8 @@ KMeansResult run_kmeans(
             }
         }
         if (clustersDebugFile.is_open()) {
-            clustersDebugFile.write(centroidMap);
+            auto v = std::vector<size_t>(centroidMap, centroidMap + dataSet.rows); 
+            clustersDebugFile.write(v);
         }
 
         for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
