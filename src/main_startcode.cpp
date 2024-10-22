@@ -171,10 +171,8 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 		KMeansResult result = run_kmeans(rng, {data, rows, cols}, numClusters, clustersDebugFile, centroidDebugFile);
 		stepsPerRepetition[r] = result.steps;
 
-		if (result.bestDistSumSqrd < bestDistSquaredSum){
-		    bestDistSquaredSum = result.bestDistSumSqrd;
-			bestCentroids = result.bestCentroidsIndices;
-		}
+		bestDistSquaredSum = result.bestDistSumSqrd;
+		bestCentroids = result.bestCentroidsIndices;
 
 		std::cout << "On Repition " << r+1 << " we got " << stepsPerRepetition[r] << " steps" << std::endl;
 		// Make sure debug logging is only done on first iteration ; subsequent checks
