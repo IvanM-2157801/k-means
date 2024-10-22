@@ -152,7 +152,8 @@ KMeansResult run_kmeans(
             }
         }
         if (clustersDebugFile.is_open()) {
-            clustersDebugFile.write(centroidMap);
+            auto v = std::vector<size_t>(centroidMap, centroidMap + dataSet.rows);
+            clustersDebugFile.write(v);
         }
 
         changed = false;
