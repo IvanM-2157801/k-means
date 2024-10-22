@@ -70,7 +70,7 @@ std::pair<size_t, double> closest_centroid_and_dist(const std::vector<Centroid>&
 
     for (size_t cIdx = 0; cIdx < centroids.size(); cIdx++){
         double  distSumSqrd = 0;
-        const auto centroid = centroids[cIdx];
+        const auto& centroid = centroids[cIdx];
 
         // euclidic distance: sqrt((x1 - y1)² + (x2 - y2)²)
         // where x and y are points in R²
@@ -103,9 +103,6 @@ std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, con
                 std::plus<double>{} // binary_op
             );
         }
-    }
-    if (!count){
-        exit(69);
     }
     std::transform(avgPoint.cbegin(), avgPoint.cend(), avgPoint.begin(), [count](auto x) { return x / count; });
     return avgPoint;
@@ -149,6 +146,15 @@ KMeansResult run_kmeans(
     size_t steps = 0;
 
     while (changed) {
+        if (centroidDebugFile.is_open()) {
+            for (const auto& centroid: centroids) {
+                centroidDebugFile.write(centroid, dataSet.cols);
+            }
+        }
+        if (clustersDebugFile.is_open()) {
+            clustersDebugFile.write(centroidMap);
+        }
+
         changed = false;
         double distSqrdSum = 0;
         steps++;
