@@ -13,9 +13,6 @@ struct PointView {
     size_t len;
 };
 
-// centroid is just an N-dim point
-using Centroid = std::vector<double>;
-
 std::ostream& operator<<(std::ostream& o, const PointView &v){
     o << std::setprecision(15);
     for (size_t i = 0; i < v.len-1; i++){
@@ -36,8 +33,8 @@ std::ostream& operator<<(std::ostream& o, const std::vector<T> &v){
 
 struct DataSet {
     const std::vector<double> &data;
-    size_t rows;
-    size_t cols;
+    const size_t rows;
+    const size_t cols;
 
     // 2D array in 1D vector how to get a view over a row???
     // say the vector of 2D points looks like this
@@ -64,18 +61,18 @@ struct DataSet {
 
 
 // for a point find the closest centroid and return that distance with the index of that centroid
-std::pair<size_t, double> closest_centroid_and_dist(const std::vector<Centroid>& centroids, const PointView point) {
+std::pair<size_t, double> closest_centroid_and_dist(const double* centroids, const PointView point, size_t amtCentroids) {
     double bestDist =  std::numeric_limits<double>::max(); // can only get better
     size_t bestIndex = -1;
 
-    for (size_t cIdx = 0; cIdx < centroids.size(); cIdx++){
+    for (size_t cIdx = 0; cIdx < amtCentroids; cIdx++){
         double  distSumSqrd = 0;
-        const auto& centroid = centroids[cIdx];
+        // const auto& centroid = centroids[cIdx];
 
         // euclidic distance: sqrt((x1 - y1)² + (x2 - y2)²)
         // where x and y are points in R²
         for (size_t i = 0; i < point.len; i++){
-            auto pointDiff = centroid[i] - point.point[i];
+            auto pointDiff = centroids[cIdx * point.len + i] - point.point[i];
             distSumSqrd += pointDiff * pointDiff;
         }
 
@@ -112,19 +109,18 @@ std::vector<double> average_of_points_with_cluster(const size_t centroidIdx, con
 struct KMeansResult{
     size_t steps;
     double bestDistSumSqrd;
-    // std::vector<size_t> bestCentroidsIndices;
-    size_t* bestCentroidIndices;
+    std::vector<size_t> bestCentroidsIndices;
 };
 
 KMeansResult run_kmeans(
     Rng &rng,
     const DataSet& dataSet,
-    size_t amtCentroids,
+    const size_t amtCentroids,
     FileCSVWriter& clustersDebugFile,
     FileCSVWriter& centroidDebugFile
 ) {
     double bestdistSqrdSum = std::numeric_limits<double>::max(); 
-    size_t* bestCentroidsIndices;
+    size_t bestCentroidsIndices[dataSet.rows] = { 0 };
     // std::vector<size_t> bestCentroidsIndices{};
     // cluster map maps points to their cluster
     // the value is the index of the cluster
@@ -136,10 +132,13 @@ KMeansResult run_kmeans(
     auto centroidsIndices = std::vector<size_t>(amtCentroids);
     rng.pickRandomIndices(dataSet.rows, centroidsIndices);
 
-    auto centroids = std::vector<Centroid>{};
+    double centroids[amtCentroids][dataSet.cols] = { { 0 } };
+    // auto centroids = std::vector<Centroid>{};
+    int c = 0;
     for (const auto cIdx : centroidsIndices) {
         auto centroid = dataSet.get_point(cIdx);
-        centroids.push_back(centroid);
+        std::copy(centroid.begin(), centroid.end(), centroids[c]);
+        c++;
     }
 
     bool changed = true;
@@ -147,8 +146,9 @@ KMeansResult run_kmeans(
 
     while (changed) {
         if (centroidDebugFile.is_open()) {
-            for (const auto& centroid: centroids) {
-                centroidDebugFile.write(centroid, dataSet.cols);
+            for (const double* centroid: centroids) {
+                auto v = std::vector<double>(centroid, centroid + dataSet.cols);
+                centroidDebugFile.write(v, dataSet.cols);
             }
         }
         if (clustersDebugFile.is_open()) {
@@ -160,19 +160,9 @@ KMeansResult run_kmeans(
         double distSqrdSum = 0;
         steps++;
 
-        if (centroidDebugFile.is_open()) {
-            for (const auto& centroid: centroids) {
-                centroidDebugFile.write(centroid, dataSet.cols);
-            }
-        }
-        if (clustersDebugFile.is_open()) {
-            auto v = std::vector<size_t>(centroidMap, centroidMap + dataSet.rows); 
-            clustersDebugFile.write(v);
-        }
-
         for (int pointIdx = 0; pointIdx < dataSet.rows; pointIdx++) {
             auto row = dataSet.get_point_view(pointIdx);
-            const auto result = closest_centroid_and_dist(centroids, row);
+            const auto result = closest_centroid_and_dist(&centroids[0][0], row, amtCentroids);
             const auto newCluster = result.first;
             distSqrdSum += result.second;
             if (newCluster != centroidMap[pointIdx]) {
@@ -183,12 +173,14 @@ KMeansResult run_kmeans(
         if (changed) {
             for (int i = 0; i < amtCentroids; i++) {
                 // reculaculate centroid position
-                centroids[i] = average_of_points_with_cluster(i, centroidMap, dataSet);
+                auto n = average_of_points_with_cluster(i, centroidMap, dataSet);
+                memcpy(centroids[i], &n[0], dataSet.cols * sizeof(size_t));
+                // std::cout << n << std::endl;
             }
         }
 
         if (distSqrdSum < bestdistSqrdSum){
-            bestCentroidsIndices = centroidMap;
+            memcpy(bestCentroidsIndices, centroidMap, dataSet.rows * sizeof(size_t));
             bestdistSqrdSum = distSqrdSum;
         }
     }
@@ -196,6 +188,6 @@ KMeansResult run_kmeans(
     return {
         steps,
         bestdistSqrdSum,
-        bestCentroidsIndices
+        std::vector<size_t>(bestCentroidsIndices, bestCentroidsIndices + dataSet.rows)
     };
 }

@@ -166,14 +166,13 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
     // Do the k-means routine a number of times, each time starting from
     // different random centroids (use Rng::pickRandomIndices), and keep
     // the best result of these repetitions.
-	size_t* temp;
 	for (int r = 0 ; r < repetitions ; r++)
 	{
 		KMeansResult result = run_kmeans(rng, {data, rows, cols}, numClusters, clustersDebugFile, centroidDebugFile);
 		stepsPerRepetition[r] = result.steps;
 
 		bestDistSquaredSum = result.bestDistSumSqrd;
-		temp = result.bestCentroidIndices;
+		bestCentroids = std::move(result.bestCentroidsIndices);
 
 		std::cout << "On Repition " << r+1 << " we got " << stepsPerRepetition[r] << " steps" << std::endl;
 		// Make sure debug logging is only done on first iteration ; subsequent checks
@@ -183,7 +182,6 @@ int kmeans(Rng &rng, const std::string &inputFileName, const std::string &output
 	}
 
 	timer.stop();
-	bestCentroids = std::vector<size_t>(temp, temp + rows);
 
 	// Some example output, of course you can log your timing data anyway you like.
 	std::cerr << "# Type,blocks,threads,file,seed,clusters,repetitions,bestdistsquared,timeinseconds" << std::endl;
